@@ -465,7 +465,7 @@ var Settings = {
       for (i = 0; i < spanFields.length; i++) {
         var key = spanFields[i].dataset.name;
 
-        if (key && result[key] != undefined) {
+        if (key && result[key] && result[key] != 'undefined') {
           // check whether this setting comes from a select option
           // (it may be in a different panel, so query the whole document)
           rule = '[data-setting="' + key + '"] ' +
@@ -492,6 +492,11 @@ var Settings = {
             //  hide this field if it's undefined/empty.
             case 'deviceinfo.firmware_revision':
               spanFields[i].parentNode.hidden = true;
+              break;
+
+            case 'deviceinfo.mac':
+              var _ = navigator.mozL10n.get;
+              spanFields[i].textContent = _('macUnavailable');
               break;
           }
         }
@@ -729,7 +734,8 @@ var Settings = {
 
   updateLanguagePanel: function settings_updateLanguagePanel() {
     var panel = document.getElementById('languages');
-    if (panel) { // update the date and time samples in the 'languages' panel
+    // update the date and time samples in the 'languages' panel
+    if (panel.children.length) {
       var d = new Date();
       var f = new navigator.mozL10n.DateTimeFormat();
       var _ = navigator.mozL10n.get;
@@ -749,9 +755,8 @@ window.addEventListener('load', function loadSettings() {
   Settings.init();
   handleRadioAndCardState();
 
-  setTimeout(function() {
-    var scripts = [
-      'js/utils.js',
+  LazyLoader.load(['js/utils.js'], startupLocale);
+  LazyLoader.load([
       'js/airplane_mode.js',
       'js/battery.js',
       'shared/js/async_storage.js',
@@ -761,13 +766,7 @@ window.addEventListener('load', function loadSettings() {
       'js/security_privacy.js',
       'js/icc_menu.js',
       'shared/js/settings_listener.js'
-    ];
-    scripts.forEach(function attachScripts(src) {
-      var script = document.createElement('script');
-      script.src = src;
-      document.head.appendChild(script);
-    });
-  });
+  ]);
 
   function handleRadioAndCardState() {
     function disableSIMRelatedSubpanels(disable) {
@@ -818,7 +817,12 @@ window.addEventListener('load', function loadSettings() {
     }
 
     var href = target.getAttribute('href');
-    if (!href || !href.startsWith('#')) {
+    // skips the following case:
+    // 1. no href, which is not panel
+    // 2. href is not a hash which is not a panel
+    // 3. href equals # which is translated with loadPanel function, they are
+    //    external links.
+    if (!href || !href.startsWith('#') || href === '#') {
       return;
     }
 
@@ -850,24 +854,34 @@ window.addEventListener('keydown', function handleSpecialKeys(event) {
 });
 
 // startup & language switching
-window.addEventListener('localized', function updateLocalized() {
+function startupLocale() {
+  navigator.mozL10n.ready(function startupLocale() {
+    initLocale();
+    // XXX this might call `initLocale()` twice until bug 882592 is fixed
+    window.addEventListener('localized', initLocale);
+  });
+}
+
+function initLocale() {
+  var lang = navigator.mozL10n.language.code;
+
   // set the 'lang' and 'dir' attributes to <html> when the page is translated
-  document.documentElement.lang = navigator.mozL10n.language.code;
+  document.documentElement.lang = lang;
   document.documentElement.dir = navigator.mozL10n.language.direction;
 
   // display the current locale in the main panel
   Settings.getSupportedLanguages(function displayLang(languages) {
-    document.getElementById('language-desc').textContent =
-        languages[navigator.mozL10n.language.code];
+    document.getElementById('language-desc').textContent = languages[lang];
   });
+
   Settings.updateLanguagePanel();
 
   // update the enabled keyboards list with the language associated keyboard
   Settings.getSupportedKbLayouts(function updateEnabledKb(keyboards) {
-    var newKb = keyboards.layout[navigator.mozL10n.language.code];
+    var newKb = keyboards.layout[lang];
     var settingNewKeyboard = {};
     var settingNewKeyboardLayout = {};
-    settingNewKeyboard['keyboard.current'] = navigator.mozL10n.language.code;
+    settingNewKeyboard['keyboard.current'] = lang;
     settingNewKeyboardLayout['keyboard.layouts.' + newKb] = true;
 
     var settings = navigator.mozSettings;
@@ -883,7 +897,16 @@ window.addEventListener('localized', function updateLocalized() {
     }
   });
 
-});
+  // update the keyboard layouts list by resetting the top pinned element,
+  // since it displays the previous language setting
+  var kbLayoutsList = document.getElementById('keyboard-layouts');
+  if (kbLayoutsList) {
+    var prevKbLayout = kbLayoutsList.querySelector('li[hidden]');
+    prevKbLayout.hidden = false;
+
+    Settings.updateKeyboardPanel();
+  }
+}
 
 // Do initialization work that doesn't depend on the DOM, as early as
 // possible in startup.

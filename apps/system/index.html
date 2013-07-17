@@ -29,6 +29,7 @@
 
     <!-- Include shared building blocks -->
     <link rel="stylesheet" type="text/css" href="shared/style/confirm.css"/>
+    <link rel="stylesheet" type="text/css" href="shared/style/input_areas.css">
     <link rel="stylesheet" type="text/css" href="shared/style/headers.css"/>
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css"/>
 
@@ -229,6 +230,7 @@
     <!-- Any module that wants to intercept the Home button and prevent the -->
     <!-- homescreen from being displayed must come before this script. -->
     <link rel="stylesheet" type="text/css" href="style/window.css">
+    <script defer src="js/orientation_observer.js"></script>
     <script defer src="js/window.js"></script>
     <script defer src="js/window_manager.js"></script>
 
@@ -348,8 +350,15 @@
         <div id="statusbar-call-forwarding" class="sb-icon sb-icon-call-forwarding" hidden></div>
 
         <!-- Activity -->
-        <canvas id="statusbar-system-downloads" width="16" height="16" hidden></canvas>
-        <canvas id="statusbar-network-activity" width="16" height="16" hidden></canvas>
+        <!-- HACK: We use images instead of divs to enforce allocation of a
+             dedicated layer just for this animated icons, remove after bug
+             717872 gets fixed -->
+        <img id="statusbar-system-downloads"
+             src="style/statusbar/images/system-downloads.gif"
+             class="sb-icon-system-downloads" hidden>
+        <img id="statusbar-network-activity"
+             src="style/statusbar/images/network-activity.gif"
+             class="sb-icon-network-activity" hidden>
       </div>
 
       <div id="utility-tray" data-z-index-level="utility-tray">
@@ -653,24 +662,21 @@
 
         <!-- Time Picker -->
         <div id="time-picker-popup" hidden>
-          <div class="table-wrapper">
-            <div class="table-cell">
-              <div id="picker-bar">
-                <h3 data-l10n-id="select-time">Select time</h3>
-                <div id="picker-container">
-                  <div id="value-indicator-bottom"></div>
-                  <div id="picker-bar-background"></div>
-                  <div id="left-picker-separator"></div>
-                  <div id="value-indicator-wrapper">
-                    <div id="value-indicator-hover-time">:</div>
-                    <div id="value-indicator-hover"></div>
-                  </div>
-                  <div id="value-picker-hours" class="value-picker animation-on"></div>
-                  <div id="value-picker-minutes" class="value-picker animation-on"></div>
-                  <div id="right-picker-separator"></div>
-                  <div id="value-picker-hour24-state" class="value-picker animation-on"></div>
-                  <div id="picker-bar-gradient"></div>
-                </div>
+          <h3 data-l10n-id="select-time">Select time</h3>
+          <div id="time-picker">
+            <div class="picker-container">
+              <div class="picker-bar-background"></div>
+              <div class="value-picker-hours-wrapper">
+                <div class="value-picker-hours" class="animation-on"></div>
+              </div>
+              <div class="value-picker-minutes-wrapper">
+                <div class="value-picker-minutes" class="animation-on"></div>
+              </div>
+              <div class="value-picker-hour24-wrapper">
+                <div class="value-picker-hour24-state" class="animation-on"></div>
+              </div>
+              <div class="value-indicator">
+                <div class="value-indicator-colon">:</div>
               </div>
             </div>
           </div>
@@ -682,30 +688,23 @@
 
         <!-- Spin Date Picker -->
         <div id="spin-date-picker-popup" hidden>
-          <div id="spin-date-picker" class="table-wrapper">
-            <div class="table-cell">
-              <div class="picker-bar">
-                <h3 data-l10n-id="select-day">Select day</h3>
-                <div class="picker-container">
-                  <div class="value-indicator-bottom"></div>
-                  <div class="picker-bar-background"></div>
-                  <div class="left-picker-separator"></div>
-                  <div class="right-picker-separator"></div>
-                  <div class="value-indicator-wrapper">
-                    <div class="value-indicator-hover"></div>
-                  </div>
-                  <div class="value-picker-date-wrapper">
-                    <div class="value-picker value-picker-date animation-on"></div>
-                  </div>
-                  <div class="value-picker-month-wrapper">
-                    <div class="value-picker value-picker-month" class="animation-on"></div>
-                  </div>
-                  <div class="value-picker-year-wrapper">
-                    <div class="value-picker value-picker-year" class="animation-on"></div>
-                  </div>
-                  <div class="picker-bar-gradient"></div>
-                </div>
+          <h3 data-l10n-id="select-day">Select day</h3>
+          <div id="spin-date-picker">
+            <div class="picker-container">
+              <div class="picker-bar-background"></div>
+              <div class="value-picker-date-wrapper">
+                <div class="value-picker-date animation-on"></div>
+                <div class="value-picker-date animation-on"></div>
+                <div class="value-picker-date animation-on"></div>
+                <div class="value-picker-date animation-on"></div>
               </div>
+              <div class="value-picker-month-wrapper">
+                <div class="value-picker-month" class="animation-on"></div>
+              </div>
+              <div class="value-picker-year-wrapper">
+                <div class="value-picker-year" class="animation-on"></div>
+              </div>
+              <div class="value-indicator"></div>
             </div>
           </div>
           <menu id="spin-date-picker-buttons" data-items="2">
@@ -839,9 +838,6 @@
             <div id="lockscreen-header">
               <div id="lockscreen-connstate" hidden><span></span><span></span></div>
               <div id="lockscreen-mute" hidden></div>
-              <div id="lockscreen-alt-camera" class="lockscreen-icon">
-                <div role="button" id="lockscreen-alt-camera-button" class="lockscreen-icon-a11y-button" data-l10n-id="camera-a11y-button" aria-label="Camera"></div>
-              </div>
               <div class="lockscreen-clock">
                 <span id="lockscreen-clock-numbers"></span>
                 <span id="lockscreen-clock-meridiem"></span>
@@ -949,6 +945,24 @@
           <menu>
             <button type="button" data-l10n-id="no" id="icc-asyncconfirm-btn-no">No</button>
             <button type="button" data-l10n-id="yes" id="icc-asyncconfirm-btn-yes" class="recommend">Yes</button>
+          </menu>
+        </form>
+        <form role="dialog" data-type="confirm" id="icc-input">
+          <section>
+            <h1 data-l10n-id="icc-inputtitle">STK Query</h1>
+            <p id="icc-input-msg"></p>
+            <input id="icc-input-box" required="" type="text">
+          </section>
+          <menu>
+              <button type="button" data-l10n-id="help" id="icc-input-btn_help">Help</button>
+              <button type="button" data-l10n-id="back" id="icc-input-btn_back">Back</button>
+              <span class="yesnodisabled">
+                <button type="button" data-l10n-id="ok" id="icc-input-btn" class="recommend">Ok</button>
+              </span>
+              <span class="yesnoenabled">
+                <button type="button" data-l10n-id="no" id="icc-input-btn_no">No</button>
+                <button type="button" data-l10n-id="yes" id="icc-input-btn_yes" class="recommend">Yes</button>
+              </span>
           </menu>
         </form>
       </div>

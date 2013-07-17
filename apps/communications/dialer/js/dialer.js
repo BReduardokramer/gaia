@@ -7,6 +7,7 @@ var CallHandler = (function callHandler() {
   var callScreenWindowReady = false;
   var btCommandsToForward = [];
   var currentActivity = null;
+  var FB_SYNC_ERROR_PARAM = 'isSyncError';
 
   /* === Settings === */
   var screenState = null;
@@ -67,10 +68,16 @@ var CallHandler = (function callHandler() {
       return;
     }
 
-    navigator.mozApps.getSelf().onsuccess = function gotSelf(evt) {
-      var app = evt.target.result;
+    navigator.mozApps.getSelf().onsuccess = function gotSelf(selfEvt) {
+      var app = selfEvt.target.result;
       app.launch('dialer');
-      window.location.hash = '#recents-view';
+      var location = document.createElement('a');
+      location.href = evt.imageURL;
+      if (location.search.indexOf(FB_SYNC_ERROR_PARAM) !== -1) {
+        window.location.hash = '#contacts-view';
+      } else {
+        window.location.hash = '#call-log-view';
+      }
     };
   }
   if (window.navigator.mozSetMessageHandler) {
@@ -502,12 +509,12 @@ window.addEventListener('load', function startup(evt) {
                       'confirmation-message',
                       'edit-mode'];
 
-    CallHandler.initMMI();
-    loader.load(lazyPanels.map(function toElement(id) {
-        return document.getElementById(id);
-      })
-    );
+    var lazyPanelsElements = lazyPanels.map(function toElement(id) {
+      return document.getElementById(id);
+    });
+    loader.load(lazyPanelsElements);
 
+    CallHandler.initMMI();
     LazyL10n.get(function loadLazyFilesSet() {
       loader.load(['/contacts/js/fb/fb_data.js',
                    '/contacts/js/fb/fb_contact_utils.js',
@@ -516,6 +523,7 @@ window.addEventListener('load', function startup(evt) {
                    '/dialer/js/newsletter_manager.js',
                    '/shared/style/edit_mode.css',
                    '/shared/style/headers.css']);
+      lazyPanelsElements.forEach(navigator.mozL10n.translate);
     });
   });
 });

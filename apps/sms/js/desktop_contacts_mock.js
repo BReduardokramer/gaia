@@ -272,7 +272,8 @@
       familyName: 'Shannon',
       givenName: 'Claude',
       tel: {
-        value: '103'
+        value: '103',
+        type: 'Mobile'
       }
     })
   );
@@ -384,6 +385,19 @@
         {
           value: '+15551237890',
           type: ['Home']
+        }
+      ]
+    })
+  );
+
+  ContactsDB.push(
+    new Contact({
+      familyName: 'Taumatawhakatangihangakoauauota',
+      givenName: 'Mateapokaiwhenuakitanatahu',
+      tel: [
+        {
+          value: '+18001114321',
+          type: ['Mobile']
         }
       ]
     })

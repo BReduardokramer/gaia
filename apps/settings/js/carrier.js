@@ -114,7 +114,7 @@ var Carrier = (function newCarrier(window, document, undefined) {
           rilData(usage, 'mmsport').value = item.mmsport || '';
         }
         var input = document.getElementById('ril-' + usage + '-authType');
-        input.value = item.authtype ? AUTH_TYPES[input.value] : 'notDefined';
+        input.value = AUTH_TYPES[item.authtype] || 'notDefined';
         var parent = input.parentElement;
         var button = input.previousElementSibling;
         var index = input.selectedIndex;
@@ -430,6 +430,9 @@ var Carrier = (function newCarrier(window, document, undefined) {
     li.appendChild(state);
     li.appendChild(name);
 
+    li.dataset.cachedState = network.state || 'unknown';
+    li.classList.add('operatorItem');
+
     // bind connection callback
     li.onclick = function() {
       callback(network, true);
@@ -445,7 +448,7 @@ var Carrier = (function newCarrier(window, document, undefined) {
     var infoItem = list.querySelector('li[data-state="on"]');
     var scanItem = list.querySelector('li[data-state="ready"]');
     scanItem.onclick = scan;
-
+    
     var currentConnectedNetwork = null;
     var connecting = false;
     var operatorItemMap = {};
@@ -458,6 +461,23 @@ var Carrier = (function newCarrier(window, document, undefined) {
       for (var i = len - 1; i >= 0; i--) {
         list.removeChild(operatorItems[i]);
       }
+    }
+
+    function resetOperatorItemState() {
+      var operatorItems =
+        Array.prototype.slice.call(list.querySelectorAll('.operatorItem'));
+      operatorItems.forEach(function(operatorItem) {
+        var state = operatorItem.dataset.cachedState;
+        var messageElement = operatorItem.querySelector('small');
+
+        if (!state) {
+          state = 'unknown';
+        } else if (state === 'current') {
+          state = 'available';
+        }
+
+        localize(messageElement, 'state-' + state);
+      });
     }
 
     // select operator
