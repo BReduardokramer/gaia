@@ -1061,6 +1061,12 @@ var ThreadUI = global.ThreadUI = {
     var classNames = ['message', message.type, delivery];
 
     var notDownloaded = delivery === 'not-downloaded';
+    var attachments = message.attachments;
+    // Returning attachments would be different based on gecko version:
+    // null in b2g18 / empty array in master.
+    var noAttachment = (message.type === 'mms' && !notDownloaded &&
+      (attachments === null || attachments.length === 0));
+    var _ = navigator.mozL10n.get;
 
     if (delivery === 'received' || notDownloaded) {
       classNames.push('incoming');
@@ -1085,6 +1091,11 @@ var ThreadUI = global.ThreadUI = {
       bodyHTML = this._createNotDownloadedHTML(message, classNames);
     }
 
+    if (noAttachment) {
+      classNames = classNames.concat(['error', 'no-attachment']);
+      bodyHTML = Utils.escapeHTML(_('no-attachment-text'));
+    }
+
     messageDOM.className = classNames.join(' ');
     messageDOM.id = 'message-' + message.id;
     messageDOM.dataset.messageId = message.id;
@@ -1096,7 +1107,7 @@ var ThreadUI = global.ThreadUI = {
       safe: ['bodyHTML']
     });
 
-    if (message.type === 'mms' && !notDownloaded) { // MMS
+    if (message.type === 'mms' && !notDownloaded && !noAttachment) { // MMS
       var pElement = messageDOM.querySelector('p');
       SMIL.parse(message, function(slideArray) {
         pElement.appendChild(ThreadUI.createMmsContent(slideArray));
@@ -1302,6 +1313,12 @@ var ThreadUI = global.ThreadUI = {
       return;
     }
 
+    // Do nothing for no attachment error because it's not possible to
+    // retrieve message again in this edge case.
+    if (elems.message.classList.contains('no-attachment')) {
+      return;
+    }
+
     // Click events originating from a "pack-end" aside of an error message
     // should trigger a prompt for retransmission.
     if (elems.message.classList.contains('error') && elems.packEnd) {
@@ -1320,7 +1337,7 @@ var ThreadUI = global.ThreadUI = {
           // if the click wasn't on an attachment check for other clicks
           if (!thui_mmsAttachmentClick(evt.target)) {
             this.handleMessageClick(evt);
-            LinkActionHandler.handleTapEvent(evt);
+            LinkActionHandler.onClick(evt);
           }
           return;
         }
@@ -1332,9 +1349,7 @@ var ThreadUI = global.ThreadUI = {
         }
         break;
       case 'contextmenu':
-        evt.preventDefault();
-        evt.stopPropagation();
-        LinkActionHandler.handleLongPressEvent(evt);
+        LinkActionHandler.onContextMenu(evt);
         break;
       case 'submit':
         evt.preventDefault();
@@ -1922,38 +1937,55 @@ var ThreadUI = global.ThreadUI = {
     var _ = navigator.mozL10n.get;
     var thread = Threads.get(Threads.lastId || Threads.currentId);
     var number = opt.number;
-    var name = opt.name || number;
+    var email = opt.email;
+    var name = opt.name || number || email;
     var isContact = opt.isContact || false;
+    var inMessage = opt.inMessage || false;
     var items = [];
-    var params;
+    var params, props;
 
-    // An activation for a single, known recipient contact
+    // Multi-participant activation for for a single, known
+    // recipient contact, that is not triggered from a message,
     // will initiate a call to that recipient contact.
-    if (isContact && thread.participants.length === 1) {
-      ActivityPicker.call(number);
+    if ((thread && thread.participants.length === 1) &&
+        isContact && !inMessage) {
+
+      ActivityPicker.dial(number);
       return;
     }
 
-    // All activations will see a "Call" option
-    items.push({
-      name: _('call'),
-      method: function oCall(param) {
-        ActivityPicker.call(param);
-      },
-      params: [number]
-    });
-
-    // Multi-participant activations will also see
-    // a "Send Message" option
-    if (thread.participants.length > 1) {
+    // All non-email activations will see a "Call" option
+    if (email) {
       items.push({
-        name: _('sendMessage'),
+        name: _('sendEmail'),
         method: function oCall(param) {
-          ActivityPicker.sendMessage(param);
+          ActivityPicker.dial(param);
+        },
+        params: [email]
+      });
+    } else {
+      items.push({
+        name: _('call'),
+        method: function oCall(param) {
+          ActivityPicker.dial(param);
         },
         params: [number]
       });
+
+
+      // Multi-participant activations or in-message numbers
+      // will include a "Send Message" option in the menu
+      if ((thread && thread.participants.length > 1) || inMessage) {
+        items.push({
+          name: _('sendMessage'),
+          method: function oCall(param) {
+            ActivityPicker.sendMessage(param);
+          },
+          params: [number]
+        });
+      }
     }
+
 
     // Combine the items and complete callback into
     // a single params object.
@@ -1970,6 +2002,10 @@ var ThreadUI = global.ThreadUI = {
 
     } else {
 
+      props = [
+        number ? {tel: number} : {email: email}
+      ];
+
       params.header = number;
       params.items.push({
           name: _('createNewContact'),
@@ -1978,7 +2014,7 @@ var ThreadUI = global.ThreadUI = {
               param, ThreadUI.onCreateContact
             );
           },
-          params: [{'tel': number}]
+          params: props
         },
         {
           name: _('addToExistingContact'),
@@ -1987,7 +2023,7 @@ var ThreadUI = global.ThreadUI = {
               param, ThreadUI.onCreateContact
             );
           },
-          params: [{'tel': number}]
+          params: props
         }
       );
     }

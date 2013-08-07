@@ -47,7 +47,7 @@ var LINK_TYPES = {
       '(?:\\+\\d{1,4}[ \\t.()-]{0,3}|\\()?' +     // (\+<digits><sddp>|\()?
       '(?:\\d{1,4}[ \\t.()-]{0,3})?' +            // <digits><sdd>*
       '(?:\\d[\\d \\t.()-]{0,12}\\d)' +           // <digit><digit|sddp>*<digit>
-      '(?!\\d)' // the next character after can't be a digit
+      '\\b'                                       // must end on a word boundary
       ].join(''), 'g'),
     matchFilter: function phoneMatchFilter(phone, link) {
       var onlyDigits = Utils.removeNonDialables(phone);
@@ -58,8 +58,8 @@ var LINK_TYPES = {
       return link;
     },
     transform: function phoneTransform(phone, link) {
-      return '<a data-phonenumber="' + phone +
-        '" data-action="phone-link">' + phone + '</a>';
+      return '<a data-dial="' + phone +
+        '" data-action="dial-link">' + phone + '</a>';
     }
   },
 

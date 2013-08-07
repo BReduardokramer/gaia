@@ -1212,7 +1212,6 @@ suite('thread_ui.js >', function() {
     suite('expired message', function() {
       var message = testMessages[3];
       var element;
-      var element;
       var notDownloadedMessage;
       var button;
       setup(function() {
@@ -1254,6 +1253,119 @@ suite('thread_ui.js >', function() {
         });
         test('does not call retrieveMMS', function() {
           assert.equal(MessageManager.retrieveMMS.args.length, 0);
+        });
+      });
+    });
+  });
+
+  suite('No attachment error handling', function() {
+    var testMessages = [{
+      id: 1,
+      threadId: 8,
+      sender: '123456',
+      type: 'mms',
+      delivery: 'received',
+      deliveryStatus: ['success'],
+      subject: 'No attachment testing',
+      smil: '<smil><body><par><text src="cid:1"/>' +
+            '</par></body></smil>',
+      attachments: null,
+      timestamp: new Date(Date.now() - 150000),
+      expiryDate: new Date(Date.now())
+    },
+    {
+      id: 2,
+      threadId: 8,
+      sender: '123456',
+      type: 'mms',
+      delivery: 'received',
+      deliveryStatus: ['success'],
+      subject: 'Empty attachment testing',
+      smil: '<smil><body><par><text src="cid:1"/>' +
+            '</par></body></smil>',
+      attachments: [],
+      timestamp: new Date(Date.now() - 100000),
+      expiryDate: new Date(Date.now())
+    }];
+    setup(function() {
+      this.sinon.stub(Utils.date.format, 'localeFormat', function() {
+        return 'date_stub';
+      });
+      this.sinon.stub(MessageManager, 'retrieveMMS', function() {
+        return {};
+      });
+    });
+
+    suite('no attachment message', function() {
+      var message = testMessages[0];
+      var element;
+      var noAttachmentMessage;
+      setup(function() {
+        ThreadUI.appendMessage(message);
+        element = document.getElementById('message-' + message.id);
+        noAttachmentMessage = element.querySelector('p');
+      });
+      test('element has correct data-message-id', function() {
+        assert.equal(element.dataset.messageId, message.id);
+      });
+      test('no-attachment class present', function() {
+        assert.isTrue(element.classList.contains('no-attachment'));
+      });
+      test('error class present', function() {
+        assert.isTrue(element.classList.contains('error'));
+      });
+      test('pending class absent', function() {
+        assert.isFalse(element.classList.contains('pending'));
+      });
+      test('message is correct', function() {
+        assert.equal(noAttachmentMessage.textContent,
+          'no-attachment-text');
+      });
+      suite('clicking', function() {
+        setup(function() {
+          ThreadUI.handleMessageClick({
+            target: element
+          });
+        });
+        test('Should not call retrieveMMS', function() {
+          assert.isFalse(MessageManager.retrieveMMS.called);
+        });
+      });
+    });
+
+    suite('Empty attachment message', function() {
+      var message = testMessages[1];
+      var element;
+      var noAttachmentMessage;
+      setup(function() {
+        ThreadUI.appendMessage(message);
+        element = document.getElementById('message-' + message.id);
+        noAttachmentMessage = element.querySelector('p');
+      });
+      test('element has correct data-message-id', function() {
+        assert.equal(element.dataset.messageId, message.id);
+      });
+      test('no-attachment class present', function() {
+        assert.isTrue(element.classList.contains('no-attachment'));
+      });
+      test('error class present', function() {
+        assert.isTrue(element.classList.contains('error'));
+      });
+      test('pending class absent', function() {
+        assert.isFalse(element.classList.contains('pending'));
+      });
+      test('message is correct', function() {
+        assert.equal(noAttachmentMessage.textContent,
+          'no-attachment-text');
+      });
+      suite('clicking', function() {
+        setup(function() {
+          ThreadUI.handleMessageClick({
+            target: element
+          });
+        });
+        test('Should not call retrieveMMS', function() {
+          assert.isFalse(MessageManager.retrieveMMS.called);
         });
       });
     });
@@ -1358,12 +1470,12 @@ suite('thread_ui.js >', function() {
   suite('Actions on the links >', function() {
     var messageId = 23, link, phone = '123123123';
     setup(function() {
-      this.sinon.spy(LinkActionHandler, 'handleTapEvent');
-      this.sinon.spy(LinkActionHandler, 'handleLongPressEvent');
+      this.sinon.spy(LinkActionHandler, 'onClick');
+      this.sinon.spy(LinkActionHandler, 'onContextMenu');
 
       this.sinon.stub(LinkHelper, 'searchAndLinkClickableData', function() {
-        return '<a data-phonenumber="' + phone +
-        '" data-action="phone-link">' + phone + '</a>';
+        return '<a data-dial="' + phone +
+        '" data-action="dial-link">' + phone + '</a>';
       });
 
       ThreadUI.appendMessage({
@@ -1387,8 +1499,8 @@ suite('thread_ui.js >', function() {
       // In this case we are checking the 'click' action on a link
       link.click();
       // This 'click' was handled properly?
-      assert.ok(LinkActionHandler.handleTapEvent.called);
-      assert.isFalse(LinkActionHandler.handleLongPressEvent.called);
+      assert.ok(LinkActionHandler.onClick.called);
+      assert.isFalse(LinkActionHandler.onContextMenu.called);
     });
 
     test(' "contextmenu"', function() {
@@ -1396,15 +1508,13 @@ suite('thread_ui.js >', function() {
         'bubbles': true,
         'cancelable': true
       });
-      this.sinon.spy(contextMenuEvent, 'stopPropagation');
       // Dispatch custom event for testing long press
       link.dispatchEvent(contextMenuEvent);
-      // Was the propagation stopped?
-      assert.ok(contextMenuEvent.stopPropagation.called);
-      assert.ok(contextMenuEvent.defaultPrevented);
+      // The assertions that were removed from this
+      // test were relocated to link_action_handler_test.js
       // This 'context-menu' was handled properly?
-      assert.isFalse(LinkActionHandler.handleTapEvent.called);
-      assert.ok(LinkActionHandler.handleLongPressEvent.called);
+      assert.isFalse(LinkActionHandler.onClick.called);
+      assert.ok(LinkActionHandler.onContextMenu.called);
     });
 
     test(' "contextmenu" after "click"', function() {
@@ -1417,8 +1527,8 @@ suite('thread_ui.js >', function() {
       // After clicking, we dispatch a context menu
       link.dispatchEvent(contextMenuEvent);
       // Are 'click' and 'contextmenu' working properly?
-      assert.ok(LinkActionHandler.handleTapEvent.called);
-      assert.ok(LinkActionHandler.handleLongPressEvent.called);
+      assert.ok(LinkActionHandler.onClick.called);
+      assert.ok(LinkActionHandler.onContextMenu.called);
     });
   });
 
@@ -1837,15 +1947,16 @@ suite('thread_ui.js >', function() {
 
   suite('Header Actions/Display', function() {
     setup(function() {
+      Threads.delete(1);
       window.location.hash = '';
-      MockActivityPicker.call.mSetup();
+      MockActivityPicker.dial.mSetup();
       MockOptionMenu.mSetup();
     });
 
     teardown(function() {
       Threads.delete(1);
       window.location.hash = '';
-      MockActivityPicker.call.mTeardown();
+      MockActivityPicker.dial.mTeardown();
       MockOptionMenu.mTeardown();
     });
 
@@ -1866,8 +1977,8 @@ suite('thread_ui.js >', function() {
           });
 
           assert.equal(MockOptionMenu.calls.length, 0);
-          assert.ok(MockActivityPicker.call.called);
-          assert.equal(MockActivityPicker.call.calledWith, '999');
+          assert.ok(MockActivityPicker.dial.called);
+          assert.equal(MockActivityPicker.dial.calledWith, '999');
         });
 
         test('Single unknown', function() {
@@ -1984,7 +2095,7 @@ suite('thread_ui.js >', function() {
           assert.equal(MockOptionMenu.calls.length, 0);
 
           // Does initiate a "call" activity
-          assert.equal(MockActivityPicker.call.called, 1);
+          assert.equal(MockActivityPicker.dial.called, 1);
         });
 
         test('Single unknown', function() {
@@ -2074,14 +2185,14 @@ suite('thread_ui.js >', function() {
     suite('Multi participant', function() {
       setup(function() {
         window.location.hash = '';
-        MockActivityPicker.call.mSetup();
+        MockActivityPicker.dial.mSetup();
         MockOptionMenu.mSetup();
       });
 
       teardown(function() {
         Threads.delete(1);
         window.location.hash = '';
-        MockActivityPicker.call.mTeardown();
+        MockActivityPicker.dial.mTeardown();
         MockOptionMenu.mTeardown();
       });
 
@@ -2100,8 +2211,8 @@ suite('thread_ui.js >', function() {
 
           ThreadUI.onHeaderActivation();
 
-          assert.equal(MockActivityPicker.call.called, false);
-          assert.equal(MockActivityPicker.call.calledWith, null);
+          assert.equal(MockActivityPicker.dial.called, false);
+          assert.equal(MockActivityPicker.dial.calledWith, null);
         });
 
         test('DOES NOT Invoke Options', function() {
