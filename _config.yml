@@ -1,0 +1,8 @@
+title: Gaia
+description: "Gaia is a HTML5-based Phone UI for the Boot 2 Gecko Project - O mais atualizado é a versão deste projeto: 2014.8.0.2 (Versão atualizada)"
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-architect
+
+gems:
+  - jekyll-mentions
